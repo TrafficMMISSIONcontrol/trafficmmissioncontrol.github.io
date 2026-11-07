@@ -1,7 +1,6 @@
 import { BaseAdapter, AdapterResult } from '../base';
 import { GeoEvent } from '@/types';
-import fs from 'fs';
-import path from 'path';
+import rawCamerasData from '@/data/cameras.json';
 
 interface OsmCameraRaw {
   id: number;
@@ -24,14 +23,7 @@ export class OsmCamerasAdapter extends BaseAdapter {
     this.lastAttemptAt = new Date().toISOString();
 
     try {
-      const dataFilePath = path.join(process.cwd(), 'src', 'data', 'cameras.json');
-      let rawData: OsmCameraRaw[] = [];
-
-      if (fs.existsSync(dataFilePath)) {
-        const fileContent = fs.readFileSync(dataFilePath, 'utf8');
-        rawData = JSON.parse(fileContent);
-      }
-
+      const rawData = rawCamerasData as OsmCameraRaw[];
       const events: GeoEvent[] = [];
 
       for (const item of rawData) {
