@@ -1,60 +1,71 @@
-# 🛰️ PMS - Poland Mission System v2.2
-### Advanced Traffic Intelligence & News Aggregator
+# 🛰️ GeoData Hub — Krajowa Platforma Informacji Przestrzennej
 
-[![GitHub Pages](https://img.shields.io/badge/Host-GitHub%20Pages-blue?style=flat-square&logo=github)](https://trafficmmissioncontrol.github.io/news.html)
-[![Leaflet](https://img.shields.io/badge/Engine-Leaflet.js-green?style=flat-square&logo=leaflet)](https://leafletjs.com/)
-[![Data Source](https://img.shields.io/badge/Data-GOV.pl%20%7C%20GDDKiA-orange?style=flat-square)](https://dane.gov.pl)
-[![License](https://img.shields.io/badge/License-MIT-red?style=flat-square)](LICENSE)
+Nowoczesna, zintegrowana platforma GIS integrująca ogólnodostępne dane przestrzenne, drogowe, meteorologiczne, środowiskowe i hydrologiczne w jednym interaktywnym środowisku mapowym.
 
-**PMS (Poland Mission System)** is a modern, open-source *Mission Control* dashboard for real-time monitoring of Polish road infrastructure. The system aggregates data from government APIs, critical infrastructure sensors, and traffic news to provide a comprehensive situational overview in a responsive interface.
+Architektura zoptymalizowana pod **Vercel Edge / Serverless** bez konieczności konfigurowania i utrzymywania zewnętrznych, skomplikowanych baz danych.
 
 ---
 
-## 🛠️ Tech Stack
+## ⚡ Stack Technologiczny
 
-* **Frontend:** HTML5 / Modern CSS (Dark Mode Optimization)
-* **Map Engine:** [Leaflet.js](https://leafletjs.com/) – Lightweight, high-performance interactive mapping.
-* **Data Fetching:** Native JavaScript (Fetch API) – Zero backend dependencies.
-* **Geospatial Data:** Overpass API (OpenStreetMap) and GDDKiA public endpoints.
-
----
-
-## 🚀 Key Features
-
-* **📍 Tactical Map (`/mapa/index.html`):** Interactive Leaflet-based visualization of traffic events (accidents, roadblocks, construction) with precise GPS localization.
-* **🚨 Safety Intelligence:** Real-time synchronization of speed cameras and average speed check zones via Overpass API.
-* **📰 Smart News Feed (`/news.html`):** Traffic news aggregator with automatic categorization by voivodeships and road numbers (A1, S8, DK94, etc.).
-* **⚡ Zero-Server Architecture:** Fully static project optimized for GitHub Pages, ensuring high availability and low latency.
-* **📱 Mission Control UI:** Professional Dark Mode interface designed for high legibility in low-light environments and mobile use.
+* **Framework:** [Next.js 15 (App Router)](https://nextjs.org/) + React 19 + TypeScript
+* **Stylowanie:** Tailwind CSS (Motyw Tactical Dark GIS)
+* **Baza & Magazyn danych:** [Vercel Blob Storage](https://vercel.com/docs/storage/vercel-blob) (`@vercel/blob`) – zero konfiguracji zewnętrznych baz
+* **Silnik mapowy:** [MapLibre GL JS](https://maplibre.org/) z klastrowaniem punktów na GPU/WebGL
+* **Podkład mapowy:** OpenFreeMap Dark (w 100% darmowy, wektorowy, bez API key)
+* **Wizualizacje & Wykresy:** [Apache ECharts](https://echarts.apache.org/) (`echarts-for-react`)
+* **Architektura agregacji:** Modułowe adaptery ze znormalizowanym modelem `GeoEvent`
+* **Walidacja danych:** Zod
+* **Caching & Wydajność:** In-memory TTL Cache / Edge Cache (ochrona przed przekraczaniem limitów zewnętrznych API)
+* **Hosting:** Vercel
 
 ---
 
-## 📊 Data Ecosystem
+## 🌐 Zintegrowane Źródła Danych
 
-The project relies on transparent, public data sources:
-* **[Dane.gov.pl](https://dane.gov.pl)** – GDDKiA traffic disruptions and events API.
-* **[OpenStreetMap](https://www.openstreetmap.org/)** – Road infrastructure and traffic enforcement points via Overpass API.
-* **[Google News RSS]** – Localized regional traffic updates.
-
----
-
-## 🏗️ Quick Start
-
-The system is live at:  
-👉 **[https://trafficmmissioncontrol.github.io/news.html](https://trafficmmissioncontrol.github.io/news.html)**
-
-To develop or run the project locally:
-
-1.  **Clone the repository:**
-    ```bash
-    git clone [https://github.com/TrafficMMISSIONcontrol/trafficmmissioncontrol.github.io.git](https://github.com/TrafficMMISSIONcontrol/trafficmmissioncontrol.github.io.git)
-    ```
-2.  **Access the Modules:**
-    * For the **Traffic Map**, open: `/mapa/index.html`
-    * For the **News Aggregator**, open: `/news.html`
+| Źródło | Kategoria | Status | Opis |
+| :--- | :--- | :--- | :--- |
+| **IMGW PIB** | Pogoda | `ACTIVE` | Stacje synoptyczne w całej Polsce (temperatura, wiatr, opady, ciśnienie, wilgotność) |
+| **GIOŚ PJP** | Środowisko | `ACTIVE` | Oficjalny Portal Jakości Powietrza (stacje pomiarowe + indeksy jakości powietrza) |
+| **OpenStreetMap & CANARD** | Drogi | `ACTIVE` | Fotoradary stacjonarne oraz strefy Odcinkowego Pomiaru Prędkości (OPP) |
+| **Open-Meteo** | Prognozy | `ACTIVE` | Prognozy pogodowe i wskaźniki zagrożeń dla głównych aglomeracji |
+| **GDDKiA / KPD (Datex II)** | Drogi | `NOT_CONFIGURED` | Przygotowany adapter ze statusem konfiguracyjnym pod klucz KPD |
+| **Silnik Korelacyjny** | Bezpieczeństwo | `ACTIVE` | Automatyczne wnioskowanie (np. ryzyko gołoledzi / porywistego wiatru) |
 
 ---
 
-## 🛡️ License
+## 🚀 Szybki start
 
-Distributed under the **MIT License**. Feel free to fork, modify, and contribute to improving road safety in Poland.
+### 1. Klonowanie i instalacja zależności
+```bash
+git clone https://github.com/TrafficMMISSIONcontrol/trafficmmissioncontrol.github.io.git
+cd PMS.github.io
+npm install
+```
+
+### 2. Konfiguracja zmiennych środowiskowych
+Skopiuj plik `.env.example` do `.env.local`:
+```bash
+cp .env.example .env.local
+```
+
+### 3. Uruchomienie deweloperskie
+```bash
+npm run dev
+```
+Otwórz przeglądarkę na [http://localhost:3000](http://localhost:3000).
+
+### 4. Budowanie i wdrożenie na Vercel
+```bash
+npm run build
+```
+Projekt jest natychmiast gotowy do wdrożenia na Vercel (wystarczy połączyć repozytorium GitHub w panelu Vercela – zero konfiguracji baz danych).
+
+---
+
+## 🛡️ Zasada wiarygodności danych
+
+W GeoData Hub:
+* **Nie stosujemy generowania fikcyjnych wypadków ani losowych atrap pomiarów.**
+* Każde źródło posiada jawny status (`ACTIVE`, `DEGRADED`, `NOT_CONFIGURED`).
+* Każdy punkt posiada metadane pochodzenia (`source`), czas obserwacji (`observedAt`) oraz status weryfikacji (`CONFIRMED`, `OFFICIAL_WARNING`, `SYSTEM_INFERENCE`, `FORECAST`).
