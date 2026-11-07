@@ -6,7 +6,7 @@ Architektura zoptymalizowana pod **Vercel Edge / Serverless** bez konieczności 
 
 ---
 
-## ⚡ Stack Technologiczny
+## 🛠️ Stack Technologiczny
 
 * **Framework:** [Next.js 15 (App Router)](https://nextjs.org/) + React 19 + TypeScript
 * **Stylowanie:** Tailwind CSS (Motyw Tactical Dark GIS)
@@ -21,16 +21,20 @@ Architektura zoptymalizowana pod **Vercel Edge / Serverless** bez konieczności 
 
 ---
 
-## 🌐 Zintegrowane Źródła Danych
+## 📡 Zintegrowane Źródła Danych
 
 | Źródło | Kategoria | Status | Opis |
 | :--- | :--- | :--- | :--- |
-| **IMGW PIB** | Pogoda | `ACTIVE` | Stacje synoptyczne w całej Polsce (temperatura, wiatr, opady, ciśnienie, wilgotność) |
+| **Sieć Ruchu Drogowego (OSRM)** | Ruch i Tranzyt | `ACTIVE` | Monitorowanie natężenia ruchu autostrad (A1, A2, A4), dróg ekspresowych (S3, S5, S7, S8, S17, A8), DK oraz aglomeracji miejskich (Warszawa, Śląsk, Kraków, Wrocław, Poznań, Trójmiasto, Łódź) |
+| **Roboty drogowe (OSM)** | Drogi | `ACTIVE` | 534 rzeczywiste lokalizacje remontów, przebudów węzłów i zwężeń w Polsce |
+| **IMGW PIB (Synoptyczne)** | Pogoda | `ACTIVE` | Stacje synoptyczne w całej Polsce (temperatura, wiatr, opady, ciśnienie, wilgotność) |
+| **IMGW PIB (Hydrologia)** | Hydrologia | `ACTIVE` | Ponad 900 stacji wodowskazowych z poziomami wód oraz alertami stanów ostrzegawczych i alarmowych |
+| **IMGW PIB (Ostrzeżenia)** | Zagrożenia | `ACTIVE` | Bieżące ostrzeżenia meteorologiczne i hydrologiczne |
 | **GIOŚ PJP** | Środowisko | `ACTIVE` | Oficjalny Portal Jakości Powietrza (stacje pomiarowe + indeksy jakości powietrza) |
-| **OpenStreetMap & CANARD** | Drogi | `ACTIVE` | Fotoradary stacjonarne oraz strefy Odcinkowego Pomiaru Prędkości (OPP) |
+| **OpenStreetMap & CANARD** | Bezpieczeństwo | `ACTIVE` | 2282 fotoradarów stacjonarnych oraz strefy Odcinkowego Pomiaru Prędkości (OPP) z trasami |
 | **Open-Meteo** | Prognozy | `ACTIVE` | Prognozy pogodowe i wskaźniki zagrożeń dla głównych aglomeracji |
 | **GDDKiA / KPD (Datex II)** | Drogi | `NOT_CONFIGURED` | Przygotowany adapter ze statusem konfiguracyjnym pod klucz KPD |
-| **Silnik Korelacyjny** | Bezpieczeństwo | `ACTIVE` | Automatyczne wnioskowanie (np. ryzyko gołoledzi / porywistego wiatru) |
+| **Silnik Korelacyjny AI** | Bezpieczeństwo | `ACTIVE` | Automatyczne wnioskowanie (np. ryzyko gołoledzi / porywistego wiatru / fali wezbraniowej) |
 
 ---
 
@@ -48,24 +52,31 @@ Skopiuj plik `.env.example` do `.env.local`:
 ```bash
 cp .env.example .env.local
 ```
+Uzupełnij token Vercel Blob:
+```env
+BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."
+BLOB_STORE_ID="store_..."
+```
 
-### 3. Uruchomienie deweloperskie
+### 3. Uruchomienie lokalnego serwera deweloperskiego
 ```bash
 npm run dev
 ```
-Otwórz przeglądarkę na [http://localhost:3000](http://localhost:3000).
+Aplikacja będzie dostępna pod adresem: `http://localhost:3000`.
 
-### 4. Budowanie i wdrożenie na Vercel
+### 4. Budowanie produkcyjne
 ```bash
 npm run build
+npm run start
 ```
-Projekt jest natychmiast gotowy do wdrożenia na Vercel (wystarczy połączyć repozytorium GitHub w panelu Vercela – zero konfiguracji baz danych).
 
 ---
 
-## 🛡️ Zasada wiarygodności danych
+## 🌐 Endpointy API
 
-W GeoData Hub:
-* **Nie stosujemy generowania fikcyjnych wypadków ani losowych atrap pomiarów.**
-* Każde źródło posiada jawny status (`ACTIVE`, `DEGRADED`, `NOT_CONFIGURED`).
-* Każdy punkt posiada metadane pochodzenia (`source`), czas obserwacji (`observedAt`) oraz status weryfikacji (`CONFIRMED`, `OFFICIAL_WARNING`, `SYSTEM_INFERENCE`, `FORECAST`).
+* `GET /api/events` – Agregacja wszystkich zdarzeń przestrzennych z aktywnych adapterów + wnioski korelacyjne
+* `GET /api/traffic` – Dane wektorowe GeoJSON o natężeniu ruchu drogowego wraz ze statystykami sieci
+* `GET /api/sources` – Statusy diagnostyczne zarejestrowanych adapterów
+* `GET /api/gios-index?stationId={id}` – Indeks jakości powietrza dla wybranej stacji GIOŚ
+* `GET /api/snapshot` – Odczyt ostatniego zapisanego zrzutu danych z Vercel Blob
+* `POST /api/snapshot` – Wymuszenie synchronizacji i zapis zrzutu danych do Vercel Blob (obsługiwany przez cron `vercel.json`)
