@@ -6,16 +6,6 @@ import { GeoEvent } from '@/types';
 import { isPointInPoland } from '@/lib/geo/polandBorder';
 import { InferredThreat } from '@/lib/analytics/correlation';
 
-// Obrys granic Polski dla wyrazistej linii granicznej
-const POLAND_OUTLINE_COORDS: [number, number][] = [
-  [18.57, 54.44], [19.65, 54.55], [22.79, 54.36], [23.55, 54.10], [23.51, 53.95],
-  [23.95, 53.25], [23.18, 52.12], [23.62, 51.50], [24.15, 50.28], [22.70, 49.00],
-  [21.00, 49.40], [20.08, 49.19], [18.85, 49.50], [18.30, 49.95], [17.50, 50.25],
-  [16.20, 50.45], [15.40, 50.85], [14.82, 50.90], [14.75, 51.50], [14.65, 52.05],
-  [14.55, 52.55], [14.35, 53.40], [14.25, 53.90], [16.80, 54.50], [18.30, 54.83],
-  [18.57, 54.44] // zamknięcie pętli
-];
-
 interface MapLibreViewProps {
   events: GeoEvent[];
   threats: InferredThreat[];
@@ -118,31 +108,6 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
       } catch (styleErr) {
         console.warn('Dostosowywanie warstw stylu bazowego:', styleErr);
       }
-
-      // 0b. Dedykowana wyrazista granica RP (subtelny błękitno-srebrny kontur Polski)
-      map.addSource('poland-border-outline', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: { name: 'Polska' },
-          geometry: {
-            type: 'LineString',
-            coordinates: POLAND_OUTLINE_COORDS,
-          },
-        },
-      });
-
-      map.addLayer({
-        id: 'poland-border-line',
-        type: 'line',
-        source: 'poland-border-outline',
-        paint: {
-          'line-color': '#38bdf8',
-          'line-width': 2,
-          'line-opacity': 0.75,
-          'line-dasharray': [6, 3],
-        },
-      });
 
       // 1. Źródło GeoJSON dla klastrowanych punktów zdarzeń
       map.addSource('events-source', {
