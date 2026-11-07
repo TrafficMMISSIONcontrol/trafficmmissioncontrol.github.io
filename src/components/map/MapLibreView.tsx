@@ -6,6 +6,16 @@ import { GeoEvent } from '@/types';
 import { isPointInPoland } from '@/lib/geo/polandBorder';
 import { InferredThreat } from '@/lib/analytics/correlation';
 
+// Obrys granic Polski dla wyrazistej linii granicznej
+const POLAND_OUTLINE_COORDS: [number, number][] = [
+  [18.57, 54.44], [19.65, 54.55], [22.79, 54.36], [23.55, 54.10], [23.51, 53.95],
+  [23.95, 53.25], [23.18, 52.12], [23.62, 51.50], [24.15, 50.28], [22.70, 49.00],
+  [21.00, 49.40], [20.08, 49.19], [18.85, 49.50], [18.30, 49.95], [17.50, 50.25],
+  [16.20, 50.45], [15.40, 50.85], [14.82, 50.90], [14.75, 51.50], [14.65, 52.05],
+  [14.55, 52.55], [14.35, 53.40], [14.25, 53.90], [16.80, 54.50], [18.30, 54.83],
+  [18.57, 54.44] // zamknięcie pętli
+];
+
 interface MapLibreViewProps {
   events: GeoEvent[];
   threats: InferredThreat[];
@@ -39,14 +49,14 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
-    // Darmowy styl wektorowy bez API KEY (OpenFreeMap Dark)
+    // Styl wektorowy OpenFreeMap Dark
     const mapStyle = 'https://tiles.openfreemap.org/styles/dark';
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: mapStyle,
       center: [19.4803, 52.0693], // Centrum Polski
-      zoom: 6.2,
+      zoom: 6.3,
       minZoom: 5,
       maxZoom: 18,
     });
@@ -61,13 +71,86 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
     map.on('load', () => {
+      // 0. Stylizacja granic i etykiet miast stylu podkładowego (zwiększenie czytelności)
+      try {
+        // Granice państwowe (wyrazisty srebrzysto-biały kontur)
+        if (map.getLayer('boundary_country_z5-')) {
+          map.setPaintProperty('boundary_country_z5-', 'line-color', '#cbd5e1');
+          map.setPaintProperty('boundary_country_z5-', 'line-width', [
+            'interpolate', ['exponential', 1.1], ['zoom'], 4, 1.8, 8, 2.8, 14, 4.5
+          ]);
+          map.setPaintProperty('boundary_country_z5-', 'line-opacity', 0.9);
+        }
+        if (map.getLayer('boundary_country_z0-4')) {
+          map.setPaintProperty('boundary_country_z0-4', 'line-color', '#cbd5e1');
+          map.setPaintProperty('boundary_country_z0-4', 'line-opacity', 0.85);
+        }
+
+        // Granice województw (wyraźniejsza linia przerywana)
+        if (map.getLayer('boundary_state')) {
+          map.setPaintProperty('boundary_state', 'line-color', '#94a3b8');
+          map.setPaintProperty('boundary_state', 'line-width', [
+            'interpolate', ['exponential', 1.2], ['zoom'], 4, 1.2, 8, 2.0, 14, 3.2
+          ]);
+          map.setPaintProperty('boundary_state', 'line-dasharray', [4, 3]);
+          map.setPaintProperty('boundary_state', 'line-opacity', 0.85);
+        }
+
+        // Wyraźniejsze i bardziej czytelne nazwy miast (City Labels)
+        if (map.getLayer('place_city_large')) {
+          map.setPaintProperty('place_city_large', 'text-color', '#ffffff');
+          map.setPaintProperty('place_city_large', 'text-halo-color', '#020617');
+          map.setPaintProperty('place_city_large', 'text-halo-width', 2.2);
+          map.setLayoutProperty('place_city_large', 'text-size', 14);
+        }
+        if (map.getLayer('place_city')) {
+          map.setPaintProperty('place_city', 'text-color', '#f8fafc');
+          map.setPaintProperty('place_city', 'text-halo-color', '#020617');
+          map.setPaintProperty('place_city', 'text-halo-width', 2);
+          map.setLayoutProperty('place_city', 'text-size', 12);
+        }
+        if (map.getLayer('place_town')) {
+          map.setPaintProperty('place_town', 'text-color', '#e2e8f0');
+          map.setPaintProperty('place_town', 'text-halo-color', '#020617');
+          map.setPaintProperty('place_town', 'text-halo-width', 1.6);
+          map.setLayoutProperty('place_town', 'text-size', 10.5);
+        }
+      } catch (styleErr) {
+        console.warn('Dostosowywanie warstw stylu bazowego:', styleErr);
+      }
+
+      // 0b. Dedykowana wyrazista granica RP (subtelny błękitno-srebrny kontur Polski)
+      map.addSource('poland-border-outline', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: { name: 'Polska' },
+          geometry: {
+            type: 'LineString',
+            coordinates: POLAND_OUTLINE_COORDS,
+          },
+        },
+      });
+
+      map.addLayer({
+        id: 'poland-border-line',
+        type: 'line',
+        source: 'poland-border-outline',
+        paint: {
+          'line-color': '#38bdf8',
+          'line-width': 2,
+          'line-opacity': 0.75,
+          'line-dasharray': [6, 3],
+        },
+      });
+
       // 1. Źródło GeoJSON dla klastrowanych punktów zdarzeń
       map.addSource('events-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
         cluster: true,
         clusterMaxZoom: 14,
-        clusterRadius: 50,
+        clusterRadius: 55,
       });
 
       // 1b. Źródło dla linii Odcinkowego Pomiaru Prędkości (OPP)
@@ -82,19 +165,19 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
         source: 'opp-lines-source',
         paint: {
           'line-color': '#c084fc', // neon fiolet
-          'line-width': 4,
-          'line-opacity': 0.85,
+          'line-width': 3,
+          'line-opacity': 0.8,
           'line-dasharray': [3, 2],
         },
       });
 
-      // 1c. Źródło i warstwy dla Natężenia Ruchu (Traffic Flow)
+      // 1c. Źródło i warstwy dla Natężenia Ruchu (Traffic Flow - cieńsze i bardziej subtelne)
       map.addSource('traffic-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      // Ciemna obwódka pod linią natężenia ruchu (dla idealnego kontrastu)
+      // Subtelny podrys (casing) pod linią ruchu
       map.addLayer({
         id: 'traffic-casing-layer',
         type: 'line',
@@ -105,15 +188,15 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
             'interpolate',
             ['linear'],
             ['zoom'],
-            5, 4,
-            9, 7,
-            14, 11
+            5, 2.0,
+            9, 3.2,
+            14, 5.0
           ],
-          'line-opacity': 0.9,
+          'line-opacity': 0.5,
         },
       });
 
-      // Właściwa kolorowa linia natężenia ruchu (zielony, żółty, czerwony, ciemnoczerwony)
+      // Cieńsza, elegancka linia natężenia ruchu
       map.addLayer({
         id: 'traffic-lines-layer',
         type: 'line',
@@ -128,15 +211,15 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
             'interpolate',
             ['linear'],
             ['zoom'],
-            5, 2.5,
-            9, 4.5,
-            14, 8
+            5, 1.2,
+            9, 2.2,
+            14, 3.8
           ],
-          'line-opacity': 0.95,
+          'line-opacity': 0.82,
         },
       });
 
-      // 2. Klastry (kółka)
+      // 2. Klastry (kółka) - mniejsze, półprzezroczyste, mniej inwazyjne
       map.addLayer({
         id: 'clusters',
         type: 'circle',
@@ -152,10 +235,19 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
             100,
             '#ef4444', // czerwony
           ],
-          'circle-radius': ['step', ['get', 'point_count'], 16, 20, 22, 100, 28],
-          'circle-stroke-width': 2,
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            10, // mały dyskretny rozmiar
+            20,
+            13,
+            100,
+            17
+          ],
+          'circle-opacity': 0.55, // półprzezroczyste, nie zasłaniają mapy
+          'circle-stroke-width': 1.2,
           'circle-stroke-color': '#ffffff',
-          'circle-stroke-opacity': 0.7,
+          'circle-stroke-opacity': 0.45,
         },
       });
 
@@ -167,14 +259,16 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
         filter: ['has', 'point_count'],
         layout: {
           'text-field': '{point_count_abbreviated}',
-          'text-size': 12,
+          'text-size': 9.5,
         },
         paint: {
           'text-color': '#ffffff',
+          'text-halo-color': '#000000',
+          'text-halo-width': 1,
         },
       });
 
-      // 4. Niezgrupowane punkty - kolorowe okręgi
+      // 4. Niezgrupowane punkty - mniejsze, delikatne okręgi
       map.addLayer({
         id: 'unclustered-point',
         type: 'circle',
@@ -185,35 +279,36 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
             'match',
             ['get', 'eventType'],
             'speed_camera',
-            '#3b82f6', // błękit dla fotoradarów
+            '#3b82f6',
             'avg_speed_check',
-            '#a855f7', // purpura dla OPP
+            '#a855f7',
             'road_works',
-            '#f97316', // pomarańcz dla robót drogowych
+            '#f97316',
             'accident',
-            '#ef4444', // czerwień dla wypadków
+            '#ef4444',
             'weather_warning',
-            '#eab308', // żółty dla ostrzeżeń meteo
+            '#eab308',
             'hydro_warning',
-            '#06b6d4', // cyjan dla ostrzeżeń hydro
+            '#06b6d4',
             'water_level_gauge',
-            '#0284c7', // błękit dla stacji hydro
+            '#0284c7',
             'air_quality_station',
-            '#10b981', // szmaragd dla GIOŚ
+            '#10b981',
             'weather_station',
-            '#f59e0b', // bursztyn dla IMGW meteo
+            '#f59e0b',
             'weather_forecast',
-            '#38bdf8', // błękit dla prognoz
-            '#64748b'  // domyślny szary
+            '#38bdf8',
+            '#64748b'
           ],
-          'circle-radius': 11,
-          'circle-stroke-width': 1.5,
+          'circle-radius': 7.5, // małe i subtelne
+          'circle-opacity': 0.65,
+          'circle-stroke-width': 1,
           'circle-stroke-color': '#ffffff',
-          'circle-stroke-opacity': 0.8,
+          'circle-stroke-opacity': 0.55,
         },
       });
 
-      // 4b. Dedykowane ikony/symbole dla poszczególnych kategorii
+      // 4b. Subtelne ikony wewnątrz punktów
       map.addLayer({
         id: 'unclustered-point-icon',
         type: 'symbol',
@@ -223,35 +318,25 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
           'text-field': [
             'match',
             ['get', 'eventType'],
-            'speed_camera',
-            '📸',
-            'avg_speed_check',
-            '⏱️',
-            'road_works',
-            '🚧',
-            'accident',
-            '💥',
-            'weather_warning',
-            '⚠️',
-            'hydro_warning',
-            '🌊',
-            'water_level_gauge',
-            '🌊',
-            'air_quality_station',
-            '🍃',
-            'weather_station',
-            '⛅',
-            'weather_forecast',
-            '🌤️',
+            'speed_camera', '📸',
+            'avg_speed_check', '⏱️',
+            'road_works', '🚧',
+            'accident', '💥',
+            'weather_warning', '⚠️',
+            'hydro_warning', '🌊',
+            'water_level_gauge', '🌊',
+            'air_quality_station', '🍃',
+            'weather_station', '⛅',
+            'weather_forecast', '🌤️',
             '📍'
           ],
-          'text-size': 11,
+          'text-size': 8.5,
           'text-allow-overlap': true,
           'text-ignore-placement': true,
         },
       });
 
-      // 4c. Dedykowane źródło i warstwa Zagrożeń / Wniosków Systemu
+      // 4c. Źródło i warstwa Zagrożeń / Wniosków Systemu
       map.addSource('threats-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
@@ -263,10 +348,10 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
         source: 'threats-source',
         paint: {
           'circle-color': '#ef4444',
-          'circle-radius': 14,
-          'circle-stroke-width': 2.5,
+          'circle-radius': 11,
+          'circle-stroke-width': 1.8,
           'circle-stroke-color': '#fef08a',
-          'circle-opacity': 0.85,
+          'circle-opacity': 0.75,
         },
       });
 
@@ -283,7 +368,7 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
             'flood_risk', '🌊',
             '⚠️'
           ],
-          'text-size': 13,
+          'text-size': 10,
           'text-allow-overlap': true,
           'text-ignore-placement': true,
         },
@@ -394,11 +479,30 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
           .addTo(map);
       });
 
-      // Zmiana kursora
-      map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = ''; });
-      map.on('mouseenter', 'unclustered-point', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'unclustered-point', () => { map.getCanvas().style.cursor = ''; });
+      // Subtelny hover: klastry po najechaniu delikatnie się rozjaśniają
+      map.on('mouseenter', 'clusters', () => {
+        map.getCanvas().style.cursor = 'pointer';
+        map.setPaintProperty('clusters', 'circle-opacity', 0.85);
+        map.setPaintProperty('clusters', 'circle-stroke-opacity', 0.8);
+      });
+      map.on('mouseleave', 'clusters', () => {
+        map.getCanvas().style.cursor = '';
+        map.setPaintProperty('clusters', 'circle-opacity', 0.55);
+        map.setPaintProperty('clusters', 'circle-stroke-opacity', 0.45);
+      });
+
+      // Pojedyncze punkty
+      map.on('mouseenter', 'unclustered-point', () => {
+        map.getCanvas().style.cursor = 'pointer';
+        map.setPaintProperty('unclustered-point', 'circle-opacity', 0.95);
+        map.setPaintProperty('unclustered-point', 'circle-stroke-width', 1.8);
+      });
+      map.on('mouseleave', 'unclustered-point', () => {
+        map.getCanvas().style.cursor = '';
+        map.setPaintProperty('unclustered-point', 'circle-opacity', 0.65);
+        map.setPaintProperty('unclustered-point', 'circle-stroke-width', 1);
+      });
+
       map.on('mouseenter', 'opp-lines-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'opp-lines-layer', () => { map.getCanvas().style.cursor = ''; });
       map.on('mouseenter', 'traffic-lines-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
