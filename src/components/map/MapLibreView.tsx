@@ -136,51 +136,123 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
         },
       });
 
-      // 1c. Źródło i warstwy dla Natężenia Ruchu (Traffic Flow - cieńsze i bardziej subtelne)
+      // 1c. Źródło i warstwy dla Natężenia Ruchu z hierarchią zoomów
       map.addSource('traffic-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      // Subtelny podrys (casing) pod linią ruchu
+      // --- TIER 1: AUTOSTRADY I DROGI EKSPRESOWE (as) - widoczne zawsze (zoom >= 5) ---
       map.addLayer({
-        id: 'traffic-casing-layer',
+        id: 'traffic-casing-as',
         type: 'line',
         source: 'traffic-source',
+        minzoom: 5,
+        filter: ['==', ['get', 'type'], 'as'],
         paint: {
           'line-color': '#020617',
           'line-width': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            5, 2.0,
-            9, 3.2,
-            14, 5.0
+            'interpolate', ['linear'], ['zoom'],
+            5, 2.2,
+            9, 3.6,
+            14, 5.5
           ],
           'line-opacity': 0.5,
         },
       });
 
-      // Cieńsza, elegancka linia natężenia ruchu
       map.addLayer({
-        id: 'traffic-lines-layer',
+        id: 'traffic-lines-as',
         type: 'line',
         source: 'traffic-source',
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
+        minzoom: 5,
+        filter: ['==', ['get', 'type'], 'as'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': ['get', 'color'],
           'line-width': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            5, 1.2,
-            9, 2.2,
-            14, 3.8
+            'interpolate', ['linear'], ['zoom'],
+            5, 1.3,
+            9, 2.5,
+            14, 4.2
           ],
-          'line-opacity': 0.82,
+          'line-opacity': 0.85,
+        },
+      });
+
+      // --- TIER 2: DROGI KRAJOWE (dk) - widoczne od poziomu regionalnego (zoom >= 6.8) ---
+      map.addLayer({
+        id: 'traffic-casing-dk',
+        type: 'line',
+        source: 'traffic-source',
+        minzoom: 6.8,
+        filter: ['==', ['get', 'type'], 'dk'],
+        paint: {
+          'line-color': '#020617',
+          'line-width': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1.8,
+            10, 3.0,
+            14, 4.8
+          ],
+          'line-opacity': 0.45,
+        },
+      });
+
+      map.addLayer({
+        id: 'traffic-lines-dk',
+        type: 'line',
+        source: 'traffic-source',
+        minzoom: 6.8,
+        filter: ['==', ['get', 'type'], 'dk'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1.0,
+            10, 2.0,
+            14, 3.5
+          ],
+          'line-opacity': 0.8,
+        },
+      });
+
+      // --- TIER 3: ULICE MIEJSKIE I ARTERIE (city) - pojawiają się przy zbliżeniu na miasto (zoom >= 9.8) ---
+      map.addLayer({
+        id: 'traffic-casing-city',
+        type: 'line',
+        source: 'traffic-source',
+        minzoom: 9.8,
+        filter: ['==', ['get', 'type'], 'city'],
+        paint: {
+          'line-color': '#020617',
+          'line-width': [
+            'interpolate', ['linear'], ['zoom'],
+            10, 2.4,
+            13, 4.0,
+            16, 6.0
+          ],
+          'line-opacity': 0.5,
+        },
+      });
+
+      map.addLayer({
+        id: 'traffic-lines-city',
+        type: 'line',
+        source: 'traffic-source',
+        minzoom: 9.8,
+        filter: ['==', ['get', 'type'], 'city'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': [
+            'interpolate', ['linear'], ['zoom'],
+            10, 1.5,
+            13, 2.8,
+            16, 4.5
+          ],
+          'line-opacity': 0.85,
         },
       });
 
@@ -365,8 +437,8 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
         }
       });
 
-      // 5c. Kliknięcie w linię natężenia ruchu -> popup ze szczegółami
-      map.on('click', 'traffic-lines-layer', (e) => {
+      // 5c. Funkcja otwierająca popup natężenia ruchu
+      const handleTrafficClick = (e: any) => {
         const feature = e.features?.[0];
         if (!feature) return;
         const props = feature.properties as any;
@@ -405,6 +477,13 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
             </div>
           `)
           .addTo(map);
+      };
+
+      // Obsługa kliknięć na wszystkie 3 warstwy natężenia
+      ['traffic-lines-as', 'traffic-lines-dk', 'traffic-lines-city'].forEach((layerId) => {
+        map.on('click', layerId, handleTrafficClick);
+        map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
       });
 
       // 6. Kliknięcie w Zagrożenie Wnioskowane
@@ -470,8 +549,6 @@ export const MapLibreView: React.FC<MapLibreViewProps> = ({
 
       map.on('mouseenter', 'opp-lines-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'opp-lines-layer', () => { map.getCanvas().style.cursor = ''; });
-      map.on('mouseenter', 'traffic-lines-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'traffic-lines-layer', () => { map.getCanvas().style.cursor = ''; });
       map.on('mouseenter', 'threats-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'threats-circle', () => { map.getCanvas().style.cursor = ''; });
 

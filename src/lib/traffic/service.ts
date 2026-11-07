@@ -3,9 +3,8 @@
  * Oblicza stan natężenia ruchu dla autostrad, dróg ekspresowych, dróg krajowych i arterii miejskich.
  */
 
-import fs from 'fs';
-import path from 'path';
 import { TrafficSegment, TrafficStatus, TrafficSummary } from '@/types';
+import rawRoadsData from '@/data/traffic_roads.json';
 
 interface RoadConfig {
   id: string;
@@ -22,28 +21,13 @@ const STATUS_COLORS: Record<TrafficStatus, string> = {
 };
 
 export class TrafficService {
-  private static cachedRoads: RoadConfig[] | null = null;
-
-  private static loadRoads(): RoadConfig[] {
-    if (this.cachedRoads) return this.cachedRoads;
-    try {
-      const filePath = path.join(process.cwd(), 'src', 'data', 'traffic_roads.json');
-      if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, 'utf8');
-        this.cachedRoads = JSON.parse(raw);
-        return this.cachedRoads || [];
-      }
-    } catch (e) {
-      console.error('[TrafficService] Błąd ładowania dróg:', e);
-    }
-    return [];
-  }
+  private static readonly roads: RoadConfig[] = rawRoadsData as RoadConfig[];
 
   /**
    * Generuje stan natężenia ruchu dla wszystkich dróg
    */
   public static getTrafficData(): { segments: TrafficSegment[]; summary: TrafficSummary } {
-    const roads = this.loadRoads();
+    const roads = this.roads || [];
     const segments: TrafficSegment[] = [];
 
     const now = new Date();
@@ -53,7 +37,7 @@ export class TrafficService {
     const isRushHourAfternoon = hour >= 15 && hour < 18;
     const isRushHour = isRushHourMorning || isRushHourAfternoon;
 
-    // Ziarno czasowe (zmienia się co 60 sekund)
+    // Okno czasowe zmieniające się co 60 sekund
     const timeSlot = Math.floor(now.getTime() / 60000);
 
     let fluidCount = 0;
@@ -65,9 +49,11 @@ export class TrafficService {
     const CHUNK_SIZE = 12;
 
     for (const road of roads) {
-      const coords = road.coordinates;
-      if (!coords || coords.length < 2) continue;
+      if (!road || !road.coordinates || !Array.isArray(road.coordinates) || road.coordinates.length < 2) {
+        continue;
+      }
 
+      const coords = road.coordinates;
       const baseSpeedLimit = road.type === 'as' ? 130 : (road.type === 'dk' ? 90 : 60);
 
       for (let i = 0; i < coords.length - 1; i += CHUNK_SIZE) {
@@ -76,8 +62,9 @@ export class TrafficService {
 
         // Pseudolosowy, powtarzalny w danym oknie czasowym hash dla odcinka
         const segmentIdx = Math.floor(i / CHUNK_SIZE);
+        const charCode = road.id ? road.id.charCodeAt(0) : 65;
         const hash = Math.abs(
-          Math.sin(road.id.charCodeAt(0) * 100 + segmentIdx * 37 + timeSlot * 0.1) * 10000
+          Math.sin(charCode * 100 + segmentIdx * 37 + timeSlot * 0.1) * 10000
         ) % 1;
 
         let status: TrafficStatus = 'fluid';
@@ -85,7 +72,7 @@ export class TrafficService {
         let delayMinutes = 0;
 
         if (road.type === 'city') {
-          // W mieście w godzinach szczytu więcej korków
+          // W mieście w godzinach szczytu więcej zatorów
           if (isRushHour) {
             if (hash < 0.35) {
               status = 'jam';
@@ -118,7 +105,7 @@ export class TrafficService {
             }
           }
         } else if (road.type === 'as') {
-          // Autostrady i ekspresówki są zazwyczaj płynne, korki głównie przed węzłami
+          // Autostrady i ekspresówki są zazwyczaj płynne
           if (hash < 0.08) {
             status = 'jam';
             speed = Math.round(baseSpeedLimit * 0.25);
@@ -197,7 +184,7 @@ export class TrafficService {
   /**
    * Zwraca dane w formacie GeoJSON FeatureCollection dla MapLibre
    */
-  public static getTrafficGeoJSON(onlyPoland: boolean = true) {
+  public static getTrafficGeoJSON() {
     const { segments, summary } = this.getTrafficData();
 
     const features = segments.map((seg) => ({
@@ -227,4 +214,3 @@ export class TrafficService {
     };
   }
 }
-

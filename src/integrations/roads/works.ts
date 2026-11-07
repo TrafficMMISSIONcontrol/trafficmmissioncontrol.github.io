@@ -7,8 +7,7 @@
 
 import { BaseAdapter, AdapterResult } from '../base';
 import { GeoEvent } from '@/types';
-import fs from 'fs';
-import path from 'path';
+import incidentsData from '@/data/incidents.json';
 
 interface RawIncident {
   id: number;
@@ -35,20 +34,7 @@ export class RoadWorksAdapter extends BaseAdapter {
     const events: GeoEvent[] = [];
 
     try {
-      const filePath = path.join(process.cwd(), 'src', 'data', 'incidents.json');
-      if (!fs.existsSync(filePath)) {
-        this.status = 'NOT_CONFIGURED';
-        return {
-          sourceId: this.id,
-          status: 'NOT_CONFIGURED',
-          events: [],
-          recordsCount: 0,
-          responseTimeMs: Date.now() - startTime,
-        };
-      }
-
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const rawIncidents: RawIncident[] = JSON.parse(fileContent);
+      const rawIncidents = (incidentsData || []) as RawIncident[];
 
       for (const item of rawIncidents) {
         if (!item.lat || !item.lon) continue;
@@ -99,7 +85,7 @@ export class RoadWorksAdapter extends BaseAdapter {
       };
     } catch (err: any) {
       this.status = 'DEGRADED';
-      this.lastErrorMessage = err.message || 'Błąd odczytu bazy robót drogowych';
+      this.lastErrorMessage = err?.message || 'Błąd odczytu bazy robót drogowych';
       return {
         sourceId: this.id,
         status: 'DEGRADED',
